@@ -1,6 +1,8 @@
-name: Repository Governance Audit
+name: Repository Governance Audit (daily 03:00 Asia/Baghdad; manual dispatch)
 
 on:
+  schedule:
+    - cron: "0 0 * * *"
   workflow_dispatch:
     inputs:
       reason:
