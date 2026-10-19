@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "scope": "all_repositories_visible_to_the_linked_account_at_initialization",
+  "repositories": ["p2id/Co-core", "p2id/discord-mcp", "p2id/Void", "p2id/omw", "p2id/osl", "p2id/freeoss", "p2id/osfactory", "p2id/openx", "p2id/openx-protocol", "p2id/xprotocol", "p2id/Qessa_Lang"]
+}
