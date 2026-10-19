@@ -49,6 +49,24 @@ def check_path(repo, path, branch):
     return {"path": path, "status": "BLOCKED", "http_status": status,
             "detail": data.get("message", "request failed") if isinstance(data, dict) else "request failed"}
 
+def discover_repositories(fallback):
+    """Discover every repository visible to the token; fail closed on incomplete pagination."""
+    found = []
+    page = 1
+    while True:
+        status, data = request("/user/repos?per_page=100&page=" + str(page) +
+                               "&sort=full_name&direction=asc&affiliation=owner%2Ccollaborator%2Corganization_member")
+        if status != 200 or not isinstance(data, list):
+            raise RuntimeError("repository discovery failed with HTTP " + str(status) +
+                               "; refusing to report a partial inventory")
+        found.extend(item["full_name"] for item in data if isinstance(item, dict) and item.get("full_name"))
+        if len(data) < 100:
+            break
+        page += 1
+        if page > 100:
+            raise RuntimeError("repository discovery exceeded safety page limit")
+    return sorted(set(found) | set(fallback), key=str.casefold)
+
 def audit(repo):
     status, meta = request("/repos/" + repo)
     if status != 200 or not isinstance(meta, dict):
@@ -86,6 +104,10 @@ def main():
         repos = config["repositories"]
         if not isinstance(repos, list) or not repos or any(not isinstance(x, str) or "/" not in x for x in repos):
             raise ValueError("repositories must be a non-empty list of owner/name strings")
+        if config.get("discover_all_accessible", False):
+            repos = discover_repositories(repos)
+        if not repos:
+            raise ValueError("repository discovery returned no repositories")
     except Exception as exc:
         print("ERROR: invalid config: " + str(exc), file=sys.stderr)
         return 2
@@ -102,13 +124,13 @@ def main():
     summary = {s: sum(1 for r in records if r.get("status") == s)
                for s in ("PASS", "PARTIAL", "BLOCKED", "NOT_FOUND_OR_NOT_VISIBLE")}
     report = {"schema_version": 1, "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
-              "scope": "configured repository allowlist", "repository_count": len(records),
+              "scope": "all token-visible repositories plus configured allowlist", "repository_count": len(records),
               "summary": summary, "records": records,
               "verification_limits": ["No source code was changed.", "No builds, tests, security scans, or deployments were run.",
                                       "ABSENT_OR_NOT_VISIBLE means a path may be absent or inaccessible."]}
     (OUT / "inventory.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     lines = ["# Repository Inventory", "", "- Generated (UTC): " + report["generated_at_utc"],
-             "- Repositories: " + str(len(records)), "- Scope: read-only metadata and selected path checks", "",
+             "- Repositories: " + str(len(records)), "- Scope: read-only metadata and selected path checks", "- Discovery: dynamic token-visible repository discovery plus explicit allowlist", "",
              "| Repository | Status | Default branch | Archived | Findings |",
              "|---|---|---|---:|---|"]
     for r in records:
@@ -121,7 +143,7 @@ def main():
               "Missing paths are not proof that the repository is missing.",
               "Builds, tests, security scans, repairs, and deployments were not run.", ""]
     (OUT / "inventory.md").write_text("\n".join(lines), encoding="utf-8")
-    print(json.dumps(summary, sort_keys=True))
+    print(json.dumps({"discovered_repository_count": len(records), "summary": summary}, sort_keys=True))
     return 1 if any(r.get("status") in ("BLOCKED", "PARTIAL", "NOT_FOUND_OR_NOT_VISIBLE") for r in records) else 0
 
 if __name__ == "__main__":
