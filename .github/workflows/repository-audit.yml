@@ -1,0 +1,62 @@
+name: Repository Governance Audit (daily 03:00 Asia/Baghdad; manual dispatch)
+
+on:
+  push:
+    branches:
+      - feat/autonomous-repository-governance
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Reason for this manual audit"
+        required: false
+        type: string
+        default: "Read-only inventory verification"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repository-governance-audit
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    name: Read-only repository inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout governance configuration
+        uses: actions/checkout@v4
+      - name: Validate required secret
+        env:
+          AUDIT_GH_TOKEN: ${{ secrets.AUDIT_GH_TOKEN }}
+        run: |
+          if [ -z "$AUDIT_GH_TOKEN" ]; then
+            echo "::error::Repository secret AUDIT_GH_TOKEN is not configured."
+            exit 2
+          fi
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate configuration and Python syntax
+        run: |
+          python -m json.tool config/repositories.json >/dev/null
+          python -m py_compile scripts/audit_repositories.py
+      - name: Audit configured repositories
+        env:
+          AUDIT_GH_TOKEN: ${{ secrets.AUDIT_GH_TOKEN }}
+          AUDIT_OUTPUT_DIR: audit-output
+        run: python scripts/audit_repositories.py
+      - name: Upload evidence even if audit fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-audit-${{ github.run_id }}
+          path: audit-output/
+          if-no-files-found: warn
+          retention-days: 90
