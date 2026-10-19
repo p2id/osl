@@ -1,26 +1,28 @@
 # Repository Governance Automation
 
-This branch adds a safe, manual-first inventory system for the configured GitHub repositories.
+This branch prepares a scheduled, read-only inventory for repositories visible to the configured GitHub token.
 
-## Before first run
-1. Merge this branch after reviewing it.
-2. Open Settings → Secrets and variables → Actions → New repository secret.
-3. Add AUDIT_GH_TOKEN with read access to all configured repositories. Do not use a write-enabled token for the read-only inventory stage.
-4. Open Actions → Repository Governance Audit → Run workflow.
-5. Download the audit artifact and inspect inventory.md and inventory.json.
-6. Resolve BLOCKED, PARTIAL, or NOT_FOUND_OR_NOT_VISIBLE results before enabling a schedule.
+## Daily schedule
+The workflow contains a GitHub Actions cron of `0 0 * * *` UTC, corresponding to 03:00 in Iraq (Asia/Baghdad, UTC+3). GitHub scheduled workflows are best-effort and may be delayed. The schedule only becomes active after this PR is merged into the repository's default branch.
 
-## Prepared
-- Explicit allowlist of 11 currently visible repositories.
-- Read-only GitHub API inventory.
-- JSON and Markdown reports.
-- 90-day artifact retention.
-- Manual workflow dispatch, secret validation, syntax/config checks, and honest failure status.
+## Required setup
+1. Merge this PR after review.
+2. Open Settings → Secrets and variables → Actions.
+3. Add `AUDIT_GH_TOKEN` with read-only access to all intended repositories. Never use a write-enabled token for inventory.
+4. Open Actions → Repository Governance Audit and run it manually.
+5. Download the audit artifact and inspect `inventory.md` and `inventory.json`.
+6. Verify all repositories are covered and no access failures are unexplained.
 
-## Intentionally not enabled
-- No cron schedule yet.
-- No cross-repository writes.
-- No automatic code generation, issue/PR creation, merging, publishing, or deployment.
-- No claim that project tests have run.
+## What runs
+- Dynamically discovers repositories visible to the token, plus the explicit configured allowlist.
+- Checks repository metadata and selected files/paths.
+- Produces JSON and Markdown evidence artifacts with 90-day retention.
+- Fails non-zero if any repository is blocked, partially inspected, or not found/visible.
 
-This is an auditable foundation, not yet a full autonomous software engineer. Do not enable scheduling until the manual run and access coverage are verified.
+## What does not run
+- It does not edit target repositories, create issues or PRs, execute project builds/tests, run security scanners, merge, or deploy.
+- A PASS means metadata and the configured path checks succeeded; it does not mean the source code is correct.
+- It is not yet an autonomous coding/repair agent.
+
+## Next stage for autonomous development
+A coding-agent runner requires an AI provider credential, a GitHub token with branch/PR write access, explicit repository/path allowlists, repository-specific test policies, isolated execution, and a reviewed approval boundary. Those credentials cannot be created by committing files. Do not grant write access to the inventory token.
