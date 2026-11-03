@@ -41,6 +41,7 @@ jobs:
         run: |
           python -m json.tool config/repositories.json >/dev/null
           python -m py_compile scripts/audit_repositories.py
+          python -m unittest discover -s tests -v
       - name: Validate required secret
         env:
           AUDIT_GH_TOKEN: ${{ secrets.AUDIT_GH_TOKEN }}
