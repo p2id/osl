@@ -30,7 +30,17 @@ jobs:
       contents: read
     steps:
       - name: Checkout governance configuration
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - name: Validate configuration and Python syntax
+        run: |
+          python -m json.tool config/repositories.json >/dev/null
+          python -m py_compile scripts/audit_repositories.py
       - name: Validate required secret
         env:
           AUDIT_GH_TOKEN: ${{ secrets.AUDIT_GH_TOKEN }}
@@ -39,14 +49,6 @@ jobs:
             echo "::error::Repository secret AUDIT_GH_TOKEN is not configured."
             exit 2
           fi
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Validate configuration and Python syntax
-        run: |
-          python -m json.tool config/repositories.json >/dev/null
-          python -m py_compile scripts/audit_repositories.py
       - name: Audit configured repositories
         env:
           AUDIT_GH_TOKEN: ${{ secrets.AUDIT_GH_TOKEN }}
@@ -54,7 +56,7 @@ jobs:
         run: python scripts/audit_repositories.py
       - name: Upload evidence even if audit fails
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: repository-audit-${{ github.run_id }}
           path: audit-output/
