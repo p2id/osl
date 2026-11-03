@@ -11,7 +11,7 @@
     "p2id/osfactory",
     "p2id/openx",
     "p2id/openx-protocol",
-    "p2id/xprotocol",
+    "p2id/protocolX",
     "p2id/Qessa_Lang"
   ],
   "discover_all_accessible": true,
